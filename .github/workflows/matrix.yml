@@ -1,52 +1,46 @@
 name: Matrix CI (55db92a)
 
-
 on:
-push:
-branches: [ main, master ]
-workflow_dispatch: {}
-
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
-build:
-name: Build on Node v${{ matrix.node }} • ${{ matrix.os }}
-runs-on: ${{ matrix.os }}
-strategy:
-fail-fast: false
-matrix:
-os: [ubuntu-latest, macos-latest, windows-latest]
-node: [14, 16, 18]
+  build:
+    name: Build on Node v${{ matrix.node }} - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [14, 16, 18]
 
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-steps:
-- name: Checkout
-uses: actions/checkout@v4
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
 
+      # Required identifier for validation
+      - name: matrix-55db92a
+        run: |
+          echo "OS=${{ runner.os }}"
+          echo "Node=$(node -v)"
+          echo "Variant os=${{ matrix.os }}, node=${{ matrix.node }}"
 
-- name: Setup Node ${{ matrix.node }}
-uses: actions/setup-node@v4
-with:
-node-version: ${{ matrix.node }}
+      - name: Generate build artifact (JSON)
+        shell: bash
+        run: |
+          mkdir -p dist
+          node -e "const fs=require('fs'); const p=`dist/build-${{ matrix.os }}-v${{ matrix.node }}.json`; const data={variant:'os=${{ matrix.os }},node=${{ matrix.node }}', sha:process.env.GITHUB_SHA, run_id:process.env.GITHUB_RUN_ID, ts:new Date().toISOString()}; fs.writeFileSync(p, JSON.stringify(data,null,2)); console.log('Wrote', p);"
+          test -s "dist/build-${{ matrix.os }}-v${{ matrix.node }}.json"
 
-
-# Required identifier for validation
-- name: matrix-55db92a
-run: |
-echo "OS=${{ runner.os }}"
-echo "Node=$(node -v)"
-echo "Variant os=${{ matrix.os }}, node=${{ matrix.node }}"
-
-
-- name: Generate build artifact (JSON)
-shell: bash
-run: |
-node -e "const fs=require('fs'); fs.mkdirSync('dist',{recursive:true}); const p=`dist/build-${{ matrix.os }}-v${{ matrix.node }}.json`; const data={ variant:`os=${{ matrix.os }},node=${{ matrix.node }}` , sha:process.env.GITHUB_SHA, run_id:process.env.GITHUB_RUN_ID, ts:new Date().toISOString() }; fs.writeFileSync(p, JSON.stringify(data,null,2)); console.log('Wrote', p);"
-test -s "dist/build-${{ matrix.os }}-v${{ matrix.node }}.json"
-
-
-- name: Upload artifact
-uses: actions/upload-artifact@v4
-with:
-name: build-55db92a-${{ matrix.os }}-v${{ matrix.node }}
-path: dist/build-${{ matrix.os }}-v${{ matrix.node }}.json
-if-no-files-found: error
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-55db92a-${{ matrix.os }}-v${{ matrix.node }}
+          path: dist/build-${{ matrix.os }}-v${{ matrix.node }}.json
+          if-no-files-found: error
